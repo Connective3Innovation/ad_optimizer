@@ -1,0 +1,32 @@
+apiVersion: serving.knative.dev/v1
+kind: Service
+metadata:
+  name: ad-creative-auto-optimizer
+  namespace: default
+spec:
+  template:
+    metadata:
+      annotations:
+        run.googleapis.com/launch-stage: ALPHA
+    spec:
+      containers:
+        - image: REGION-docker.pkg.dev/PROJECT_ID/REPOSITORY/SERVICE:TAG
+          ports:
+            - containerPort: 8080
+          env:
+            - name: USE_MOCK_DATA
+              value: "false"
+            - name: DRY_RUN
+              value: "false"
+            - name: REQUIRE_APPROVAL
+              value: "true"
+            - name: GCP_PROJECT_ID
+              value: PROJECT_ID
+            - name: BIGQUERY_DATASET
+              value: ad_creative_auto_optimizer
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: OPENAI_API_KEY
+                  key: latest
+

@@ -1,0 +1,2 @@
+"""Asset storage helpers (GCS)."""
+

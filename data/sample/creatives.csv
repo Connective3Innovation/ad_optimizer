@@ -1,0 +1,5 @@
+creative_id,platform,title,text,hook,overlay_text,frame_desc,asset_uri,status
+C1,meta,Spring Promo,"Upgrade your daily essentials with our best-sellers.","Save more, live better","Limited time — Shop now","Close-up product shots with soft lighting",https://picsum.photos/seed/c1/800/600,active
+C2,meta,Problem Solver,"Tired of clutter? Our organizer fits anywhere.","Declutter in minutes","Before → After","Hand demonstrating product use",https://picsum.photos/seed/c2/800/600,active
+C3,meta,Social Proof,"Join 50,000+ customers who switched.","Trusted by thousands","Top-rated ★★★★★","Lifestyle scenes with diverse users",https://picsum.photos/seed/c3/800/600,active
+C4,meta,Value Pack,"Bundle and save on your favorites.","Best value this month","Bundle & Save","Product grid on clean backdrop",https://picsum.photos/seed/c4/800/600,active
