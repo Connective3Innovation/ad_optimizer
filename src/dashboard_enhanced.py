@@ -30,15 +30,25 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
     st.subheader("📈 Performance Metrics")
     perf_cols = ["creative_id", "status", "impressions", "clicks", "ctr", "conversions", "spend", "revenue"]
     perf_cols = [col for col in perf_cols if col in df.columns]
-    st.dataframe(df[perf_cols], use_container_width=True)
+    st.dataframe(df[perf_cols], width="stretch")
 
     st.divider()
 
     # Table 2: Fatigue Analysis
     st.subheader("🔍 Fatigue Analysis Details")
-    fatigue_cols = ["creative_id", "status", "drop_from_peak_ctr", "drop_from_peak_roas", "exposure_index", "notes"]
+    fatigue_cols = [
+        "creative_id",
+        "status",
+        "fatigue_score",
+        "ctr_drop",
+        "cvr_drop",
+        "roas_drop",
+        "cpa_increase",
+        "cpc_increase",
+        "notes",
+    ]
     fatigue_cols = [col for col in fatigue_cols if col in df.columns]
-    st.dataframe(df[fatigue_cols], use_container_width=True)
+    st.dataframe(df[fatigue_cols], width="stretch")
 
     st.divider()
 
@@ -73,7 +83,7 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
                     color=alt.Color("creative_id:N", title="Creative ID"),
                     tooltip=["dt:T", "creative_id:N", "ctr:Q", "impressions:Q", "clicks:Q"]
                 ).properties(height=400)
-                st.altair_chart(chart1, use_container_width=True)
+                st.altair_chart(chart1, width="stretch")
                 st.caption("📊 Showing top 10 ads by impressions")
 
             st.divider()
@@ -96,7 +106,7 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
                     color=alt.Color("metric:N", title="Metric", scale=alt.Scale(scheme="set2")),
                     tooltip=["creative_id:N", "metric:N", "amount:Q"]
                 ).properties(height=400)
-                st.altair_chart(chart2, use_container_width=True)
+                st.altair_chart(chart2, width="stretch")
                 st.caption("📊 Showing top 10 ads by spend")
 
             st.divider()
@@ -123,7 +133,7 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
                         )),
                         tooltip=["status:N", "conversions:Q"]
                     ).properties(height=300)
-                    st.altair_chart(chart3, use_container_width=True)
+                    st.altair_chart(chart3, width="stretch")
 
                 with col2:
                     chart4 = alt.Chart(status_conversions).mark_bar().encode(
@@ -135,16 +145,16 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
                         )),
                         tooltip=["status:N", "spend:Q"]
                     ).properties(height=300)
-                    st.altair_chart(chart4, use_container_width=True)
+                    st.altair_chart(chart4, width="stretch")
 
             st.divider()
 
-            # Chart 4: Exposure Index Distribution
-            st.subheader("📊 Exposure Index Distribution")
+            # Chart 4: Fatigue Score Distribution
+            st.subheader("📊 Fatigue Score Distribution")
 
-            if "exposure_index" in df.columns:
+            if "fatigue_score" in df.columns:
                 chart5 = alt.Chart(df).mark_bar().encode(
-                    x=alt.X("exposure_index:Q", bin=alt.Bin(maxbins=20), title="Exposure Index"),
+                    x=alt.X("fatigue_score:Q", bin=alt.Bin(maxbins=20), title="Fatigue Score"),
                     y=alt.Y("count():Q", title="Number of Ads"),
                     color=alt.Color("status:N", scale=alt.Scale(
                         domain=["fresh", "fatigue-risk", "fatigued"],
@@ -152,5 +162,5 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
                     )),
                     tooltip=["count():Q", "status:N"]
                 ).properties(height=300)
-                st.altair_chart(chart5, use_container_width=True)
-                st.caption("📊 Distribution of exposure index across ads by status")
+                st.altair_chart(chart5, width="stretch")
+                st.caption("📊 Distribution of fatigue scores across ads by status")

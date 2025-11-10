@@ -92,7 +92,8 @@ def fetch_creatives(
                 ad_group.name
             FROM ad_group_ad
             WHERE ad_group_ad.status != 'REMOVED'
-            LIMIT 1000
+                AND campaign.status = 'ENABLED'
+            LIMIT 5000
         """
 
         search_request = client.get_type("SearchGoogleAdsRequest")
@@ -153,6 +154,7 @@ def fetch_creatives(
                     "campaign_id": str(row.campaign.id),
                     "campaign_name": row.campaign.name if hasattr(row.campaign, 'name') else None,
                     "adset_id": str(row.ad_group.id),
+                    "adset_name": row.ad_group.name if hasattr(row.ad_group, 'name') else None,
                 })
             except Exception as e:
                 log.warning(f"Failed to process ad {ad.id}: {e}")
@@ -183,6 +185,7 @@ def fetch_performance(
     refresh_token: Optional[str] = None,
     customer_id: Optional[str] = None,
     mcc_id: Optional[str] = None,
+    view: str = "ad",
 ) -> pd.DataFrame:
     """Fetch ad performance metrics from Google Ads API
 
@@ -195,6 +198,7 @@ def fetch_performance(
         refresh_token: OAuth refresh token
         customer_id: Customer account ID (the account with campaigns)
         mcc_id: MCC account ID (for authentication). If not provided, uses customer_id
+        view: 'ad' for creative-level data (default) or 'asset' for asset-level metrics
     """
     if not all([developer_token, client_id, client_secret, refresh_token, customer_id]):
         log.warning("Google Ads credentials missing")
@@ -220,41 +224,151 @@ def fetch_performance(
         client = GoogleAdsClient.load_from_dict(credentials)
         ga_service = client.get_service("GoogleAdsService")
 
-        # Query for performance metrics
+        customer_rn = customer_id.replace("-", "")
+
+        def _run_query(query: str):
+            search_request = client.get_type("SearchGoogleAdsRequest")
+            search_request.customer_id = customer_rn
+            search_request.query = query
+            return ga_service.search(request=search_request)
+
+        view_mode = (view or "ad").lower()
+
+        if view_mode == "asset":
+            query = f"""
+                SELECT
+                    ad_group_ad.ad.id,
+                    ad_group.id,
+                    ad_group.name,
+                    campaign.id,
+                    campaign.name,
+                    ad_group_ad_asset_view.field_type,
+                    ad_group_ad_asset_view.performance_label,
+                    asset.resource_name,
+                    asset.name,
+                    asset.type,
+                    asset.text_asset.text,
+                    asset.image_asset.full_size_image_url,
+                    asset.youtube_video_asset.youtube_video_id,
+                    segments.date,
+                    metrics.impressions,
+                    metrics.clicks,
+                    metrics.cost_micros,
+                    metrics.conversions,
+                    metrics.conversions_value
+                FROM ad_group_ad_asset_view
+                WHERE segments.date BETWEEN '{start.strftime("%Y-%m-%d")}' AND '{end.strftime("%Y-%m-%d")}'
+                    AND ad_group_ad.status != 'REMOVED'
+                    AND campaign.status = 'ENABLED'
+            """
+            response = _run_query(query)
+
+            def _extract_asset_fields(asset_obj):
+                asset_text = None
+                asset_url = None
+                youtube_id = None
+
+                if hasattr(asset_obj, "text_asset") and asset_obj.text_asset and getattr(asset_obj.text_asset, "text", None):
+                    asset_text = asset_obj.text_asset.text
+
+                if hasattr(asset_obj, "image_asset") and asset_obj.image_asset and getattr(asset_obj.image_asset, "full_size_image_url", None):
+                    asset_url = asset_obj.image_asset.full_size_image_url
+
+                if hasattr(asset_obj, "youtube_video_asset") and asset_obj.youtube_video_asset and getattr(asset_obj.youtube_video_asset, "youtube_video_id", None):
+                    youtube_id = asset_obj.youtube_video_asset.youtube_video_id
+                    asset_url = f"https://www.youtube.com/watch?v={youtube_id}"
+
+                return asset_text, asset_url, youtube_id
+
+            rows = []
+            for row in response:
+                try:
+                    asset_obj = getattr(row, "asset", None)
+                    asset_text, asset_url, youtube_id = _extract_asset_fields(asset_obj) if asset_obj else (None, None, None)
+                    asset_text_value = asset_text
+                    if not asset_text_value and asset_obj and hasattr(asset_obj, "text_asset"):
+                        asset_text_value = getattr(asset_obj.text_asset, "text", None)
+                    asset_type = None
+                    if asset_obj:
+                        if hasattr(asset_obj, "type_") and asset_obj.type_:
+                            asset_type = asset_obj.type_.name
+                        elif hasattr(asset_obj, "asset_type") and asset_obj.asset_type:
+                            asset_type = asset_obj.asset_type.name
+
+                    rows.append({
+                        "creative_id": str(row.ad_group_ad.ad.id),
+                        "campaign_id": str(row.campaign.id),
+                        "campaign_name": row.campaign.name if hasattr(row.campaign, 'name') else None,
+                        "ad_group_id": str(row.ad_group.id),
+                        "ad_group_name": row.ad_group.name if hasattr(row.ad_group, 'name') else None,
+                        "asset_resource_name": row.ad_group_ad_asset_view.asset,
+                        "asset_name": asset_obj.name if asset_obj and hasattr(asset_obj, "name") else None,
+                        "asset_type": asset_type,
+                        "field_type": row.ad_group_ad_asset_view.field_type.name if row.ad_group_ad_asset_view.field_type else None,
+                        "asset_performance_label": row.ad_group_ad_asset_view.performance_label.name if row.ad_group_ad_asset_view.performance_label else None,
+                        "asset_text": asset_text_value,
+                        "asset_url": asset_url,
+                        "asset_youtube_id": youtube_id,
+                        "dt": pd.to_datetime(row.segments.date),
+                        "impressions": int(row.metrics.impressions),
+                        "clicks": int(row.metrics.clicks),
+                        "spend": float(row.metrics.cost_micros) / 1_000_000,
+                        "conversions": float(row.metrics.conversions),
+                        "revenue": float(row.metrics.conversions_value),
+                        "platform": "google",
+                    })
+                except Exception as asset_err:
+                    log.warning("Failed to process asset row: %s", asset_err)
+                    continue
+
+            log.info("Fetched %d Google Ads asset performance records", len(rows))
+            return pd.DataFrame(rows)
+
+        # Default creative-level performance query
+        # Note: Not filtering by campaign.status to match Google Ads UI behavior
+        # which shows enabled ads regardless of campaign/ad group status
         query = f"""
             SELECT
                 ad_group_ad.ad.id,
+                ad_group.id,
+                ad_group.name,
                 campaign.id,
                 campaign.name,
+                campaign.status,
+                ad_group.status,
                 segments.date,
                 metrics.impressions,
                 metrics.clicks,
                 metrics.cost_micros,
                 metrics.conversions,
-                metrics.conversions_value
+                metrics.conversions_value,
+                metrics.average_cpc,
+                metrics.conversions_from_interactions_rate
             FROM ad_group_ad
             WHERE segments.date BETWEEN '{start.strftime("%Y-%m-%d")}' AND '{end.strftime("%Y-%m-%d")}'
                 AND ad_group_ad.status != 'REMOVED'
         """
 
-        search_request = client.get_type("SearchGoogleAdsRequest")
-        search_request.customer_id = customer_id.replace("-", "")
-        search_request.query = query
-
-        response = ga_service.search(request=search_request)
+        response = _run_query(query)
 
         rows = []
         for row in response:
             rows.append({
                 "creative_id": str(row.ad_group_ad.ad.id),
+                "ad_group_id": str(row.ad_group.id),
+                "ad_group_name": row.ad_group.name if hasattr(row.ad_group, 'name') else None,
+                "ad_group_status": row.ad_group.status.name if hasattr(row.ad_group, 'status') else None,
                 "campaign_id": str(row.campaign.id),
                 "campaign_name": row.campaign.name if hasattr(row.campaign, 'name') else None,
+                "campaign_status": row.campaign.status.name if hasattr(row.campaign, 'status') else None,
                 "dt": pd.to_datetime(row.segments.date),
                 "impressions": int(row.metrics.impressions),
                 "clicks": int(row.metrics.clicks),
                 "spend": float(row.metrics.cost_micros) / 1_000_000,  # Convert micros to currency
                 "conversions": int(row.metrics.conversions),
                 "revenue": float(row.metrics.conversions_value),
+                "cpc": float(row.metrics.average_cpc) / 1_000_000 if hasattr(row.metrics, 'average_cpc') else 0.0,  # Convert micros to currency
+                "cvr": float(row.metrics.conversions_from_interactions_rate) if hasattr(row.metrics, 'conversions_from_interactions_rate') else 0.0,
                 "platform": "google",
             })
 

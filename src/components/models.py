@@ -86,9 +86,12 @@ class Performance:
 class FatigueReport:
     creative_id: str
     status: str  # fresh|fatigue-risk|fatigued
-    drop_from_peak_ctr: float
-    drop_from_peak_roas: float
-    exposure_index: float
+    fatigue_score: float
+    ctr_drop: float
+    cvr_drop: float
+    roas_drop: float
+    cpa_increase: float
+    cpc_increase: float
     notes: Optional[str] = None
 
 

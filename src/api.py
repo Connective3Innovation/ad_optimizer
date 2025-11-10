@@ -103,6 +103,7 @@ class DataRequest(BaseModel):
     use_mock: bool = Field(default=False, description="Use mock data instead of live API")
     start_date: Optional[str] = Field(None, description="Start date (YYYY-MM-DD)")
     end_date: Optional[str] = Field(None, description="End date (YYYY-MM-DD)")
+    view: str = Field(default="ad", description="Performance view: 'ad' (default) or 'asset'")
 
 
 class FatigueDetectionResponse(BaseModel):
@@ -110,15 +111,29 @@ class FatigueDetectionResponse(BaseModel):
     creative_id: str
     campaign_name: Optional[str] = Field(None, description="Campaign name")
     status: str = Field(description="fresh, fatigue-risk, or fatigued")
+    fatigue_score: Optional[float] = Field(None, ge=0, le=1, description="Weighted fatigue score (0-1)")
     impressions: Optional[int] = None
     clicks: Optional[int] = None
     ctr: Optional[float] = None
     conversions: Optional[float] = None
     spend: Optional[float] = None
     revenue: Optional[float] = None
-    drop_from_peak_ctr: Optional[float] = Field(None, description="CTR drop from peak (0-1 ratio)")
-    drop_from_peak_roas: Optional[float] = Field(None, description="ROAS drop from peak (0-1 ratio)")
-    exposure_index: Optional[float] = Field(None, description="Audience exposure/saturation level (0-1)")
+    ctr_drop: Optional[float] = Field(None, description="Relative CTR drop (0-1)")
+    cvr_drop: Optional[float] = Field(None, description="Relative CVR drop (0-1)")
+    roas_drop: Optional[float] = Field(None, description="Relative ROAS drop (0-1)")
+    cpa_increase: Optional[float] = Field(None, description="Relative CPA increase (0-1)")
+    cpc_increase: Optional[float] = Field(None, description="Relative CPC increase (0-1)")
+    impressions_7d: Optional[int] = Field(None, description="Impressions in the past 7 days")
+    ctr_7d: Optional[float] = Field(None, description="CTR (percentage) in the past 7 days")
+    ctr_30d: Optional[float] = Field(None, description="CTR (percentage) in the past 30 days")
+    roas_7d: Optional[float] = Field(None, description="ROAS in the past 7 days")
+    roas_30d: Optional[float] = Field(None, description="ROAS in the past 30 days")
+    cvr_7d: Optional[float] = Field(None, description="CVR (percentage) in the past 7 days")
+    cvr_30d: Optional[float] = Field(None, description="CVR (percentage) in the past 30 days")
+    cpa_7d: Optional[float] = Field(None, description="CPA in the past 7 days")
+    cpa_30d: Optional[float] = Field(None, description="CPA in the past 30 days")
+    cpc_7d: Optional[float] = Field(None, description="CPC in the past 7 days")
+    cpc_30d: Optional[float] = Field(None, description="CPC in the past 30 days")
     notes: Optional[str] = Field(None, description="Explanation for the assigned status")
 
 
@@ -186,7 +201,8 @@ def fetch_platform_data(
     client_id: str,
     use_mock: bool,
     start_date: Optional[datetime] = None,
-    end_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None,
+    view: str = "ad",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """
     Fetch creatives and performance data for a specific platform
@@ -262,7 +278,8 @@ def fetch_platform_data(
                 client_secret=creds.get("client_secret"),
                 refresh_token=creds.get("refresh_token"),
                 customer_id=creds.get("customer_id"),
-                mcc_id=creds.get("mcc_id")
+                mcc_id=creds.get("mcc_id"),
+                view=view,
             )
 
         elif platform == "tiktok":
@@ -510,6 +527,7 @@ async def fetch_performance(request: DataRequest):
     - **start_date**: Start date in YYYY-MM-DD format (default: 30 days ago)
     - **end_date**: End date in YYYY-MM-DD format (default: today)
     - **use_mock**: Use sample data (for testing)
+    - **view**: `ad` (default) for creative-level metrics or `asset` for RSA asset performance
 
     **Note:** Date range is typically limited to last 37 months by platform APIs.
     """
@@ -523,7 +541,8 @@ async def fetch_performance(request: DataRequest):
             client_id=request.client_id,
             use_mock=request.use_mock,
             start_date=start_date,
-            end_date=end_date
+            end_date=end_date,
+            view=request.view
         )
 
         if perf_df.empty:
@@ -603,15 +622,29 @@ async def detect_ad_fatigue(request: DataRequest):
                 creative_id=str(row.get("creative_id")),
                 campaign_name=str(row.get("campaign_name")) if pd.notna(row.get("campaign_name")) else None,
                 status=row.get("status", "fresh"),
+                fatigue_score=float(row.get("fatigue_score", 0.0)) if pd.notna(row.get("fatigue_score")) else None,
                 impressions=int(row.get("impressions", 0)) if pd.notna(row.get("impressions")) else None,
                 clicks=int(row.get("clicks", 0)) if pd.notna(row.get("clicks")) else None,
                 ctr=float(row.get("ctr", 0.0)) if pd.notna(row.get("ctr")) else None,
                 conversions=float(row.get("conversions", 0.0)) if pd.notna(row.get("conversions")) else None,
                 spend=float(row.get("spend", 0.0)) if pd.notna(row.get("spend")) else None,
                 revenue=float(row.get("revenue", 0.0)) if pd.notna(row.get("revenue")) else None,
-                drop_from_peak_ctr=float(row.get("drop_from_peak_ctr", 0.0)) if pd.notna(row.get("drop_from_peak_ctr")) else None,
-                drop_from_peak_roas=float(row.get("drop_from_peak_roas", 0.0)) if pd.notna(row.get("drop_from_peak_roas")) else None,
-                exposure_index=float(row.get("exposure_index", 0.0)) if pd.notna(row.get("exposure_index")) else None,
+                ctr_drop=float(row.get("ctr_drop", 0.0)) if pd.notna(row.get("ctr_drop")) else None,
+                cvr_drop=float(row.get("cvr_drop", 0.0)) if pd.notna(row.get("cvr_drop")) else None,
+                roas_drop=float(row.get("roas_drop", 0.0)) if pd.notna(row.get("roas_drop")) else None,
+                cpa_increase=float(row.get("cpa_increase", 0.0)) if pd.notna(row.get("cpa_increase")) else None,
+                cpc_increase=float(row.get("cpc_increase", 0.0)) if pd.notna(row.get("cpc_increase")) else None,
+                impressions_7d=int(row.get("impressions_7d", 0)) if pd.notna(row.get("impressions_7d")) else None,
+                ctr_7d=float(row.get("ctr_7d", 0.0)) if pd.notna(row.get("ctr_7d")) else None,
+                ctr_30d=float(row.get("ctr_30d", 0.0)) if pd.notna(row.get("ctr_30d")) else None,
+                roas_7d=float(row.get("roas_7d", 0.0)) if pd.notna(row.get("roas_7d")) else None,
+                roas_30d=float(row.get("roas_30d", 0.0)) if pd.notna(row.get("roas_30d")) else None,
+                cvr_7d=float(row.get("cvr_7d", 0.0)) if pd.notna(row.get("cvr_7d")) else None,
+                cvr_30d=float(row.get("cvr_30d", 0.0)) if pd.notna(row.get("cvr_30d")) else None,
+                cpa_7d=float(row.get("cpa_7d", 0.0)) if pd.notna(row.get("cpa_7d")) else None,
+                cpa_30d=float(row.get("cpa_30d", 0.0)) if pd.notna(row.get("cpa_30d")) else None,
+                cpc_7d=float(row.get("cpc_7d", 0.0)) if pd.notna(row.get("cpc_7d")) else None,
+                cpc_30d=float(row.get("cpc_30d", 0.0)) if pd.notna(row.get("cpc_30d")) else None,
                 notes=str(row.get("notes", "")) if pd.notna(row.get("notes")) else None
             ))
 
