@@ -332,7 +332,11 @@ def dashboard_tab(
             asset_summary["revenue"] / asset_summary["spend"]
         ).replace([float("inf"), float("-inf")], 0).fillna(0).round(2)
         asset_summary["asset_preview"] = (
-            asset_summary["asset_text"].fillna(asset_summary["asset_url"]).fillna("N/A").str.slice(0, 100)
+            asset_summary["asset_text"]
+            .fillna(asset_summary["asset_url"])
+            .fillna("N/A")
+            .astype(str)
+            .str.slice(0, 120)
         )
 
         field_types = sorted([ft for ft in asset_summary["field_type"].dropna().unique()])
@@ -340,6 +344,16 @@ def dashboard_tab(
             selected_field = st.selectbox("Field Type", options=["All"] + field_types, index=0)
             if selected_field != "All":
                 asset_summary = asset_summary[asset_summary["field_type"] == selected_field]
+
+        asset_types = sorted([ft for ft in asset_summary["asset_type"].dropna().unique()])
+        if asset_types:
+            selected_asset_type = st.selectbox("Asset Type", options=["All"] + asset_types, index=0)
+            if selected_asset_type != "All":
+                asset_summary = asset_summary[asset_summary["asset_type"] == selected_asset_type]
+
+        if asset_summary.empty:
+            st.info("No assets match the current filters.")
+            return
 
         col1, col2, col3 = st.columns(3)
         col1.metric("Unique assets", asset_summary["asset_resource_name"].nunique())
@@ -351,6 +365,7 @@ def dashboard_tab(
         col3.metric("Avg ROAS", f"{avg_roas:.2f}x")
 
         display_cols = [
+            "asset_type",
             "field_type",
             "asset_preview",
             "asset_performance_label",

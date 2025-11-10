@@ -248,7 +248,6 @@ def fetch_performance(
                     asset.name,
                     asset.type,
                     asset.text_asset.text,
-                    asset.image_asset.full_size_image_url,
                     asset.youtube_video_asset.youtube_video_id,
                     segments.date,
                     metrics.impressions,
@@ -268,11 +267,11 @@ def fetch_performance(
                 asset_url = None
                 youtube_id = None
 
+                if not asset_obj:
+                    return asset_text, asset_url, youtube_id
+
                 if hasattr(asset_obj, "text_asset") and asset_obj.text_asset and getattr(asset_obj.text_asset, "text", None):
                     asset_text = asset_obj.text_asset.text
-
-                if hasattr(asset_obj, "image_asset") and asset_obj.image_asset and getattr(asset_obj.image_asset, "full_size_image_url", None):
-                    asset_url = asset_obj.image_asset.full_size_image_url
 
                 if hasattr(asset_obj, "youtube_video_asset") and asset_obj.youtube_video_asset and getattr(asset_obj.youtube_video_asset, "youtube_video_id", None):
                     youtube_id = asset_obj.youtube_video_asset.youtube_video_id
