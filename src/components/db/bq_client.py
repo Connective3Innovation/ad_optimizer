@@ -90,6 +90,8 @@ class BigQueryClient:
                     bigquery.SchemaField("creative_id", "STRING"),
                     bigquery.SchemaField("platform", "STRING"),
                     bigquery.SchemaField("client_id", "STRING"),
+                    bigquery.SchemaField("campaign_id", "STRING"),
+                    bigquery.SchemaField("campaign_name", "STRING"),
                     bigquery.SchemaField("title", "STRING"),
                     bigquery.SchemaField("text", "STRING"),
                     bigquery.SchemaField("hook", "STRING"),

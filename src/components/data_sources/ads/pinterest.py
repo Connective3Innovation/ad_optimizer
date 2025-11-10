@@ -91,6 +91,7 @@ def fetch_creatives(
                 "asset_uri": pin_data.get("media", {}).get("images", {}).get("originals", {}).get("url", ""),
                 "status": ad.get("status", "UNKNOWN"),
                 "campaign_id": str(ad.get("campaign_id", "")),
+                "campaign_name": None,  # Would require separate API call to fetch campaign details
                 "adset_id": str(ad.get("ad_group_id", "")),
             })
 

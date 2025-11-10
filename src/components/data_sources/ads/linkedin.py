@@ -89,6 +89,10 @@ def fetch_creatives(
                 if media:
                     image_url = media[0].get("landingPage", {}).get("thumbnailUrl", "")
 
+            # Extract campaign ID from URN
+            campaign_urn = creative.get("campaign", "")
+            campaign_id = campaign_urn.split(":")[-1] if campaign_urn else ""
+
             rows.append({
                 "creative_id": str(creative.get("id")),
                 "platform": "linkedin",
@@ -99,7 +103,8 @@ def fetch_creatives(
                 "frame_desc": creative.get("type", ""),
                 "asset_uri": image_url,
                 "status": creative.get("status", "UNKNOWN"),
-                "campaign_id": str(creative.get("campaign", "").split(":")[-1] if "campaign" in creative else ""),
+                "campaign_id": campaign_id,
+                "campaign_name": None,  # Would require separate API call to fetch campaign details
                 "adset_id": "",
             })
 

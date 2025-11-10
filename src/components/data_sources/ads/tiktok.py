@@ -101,6 +101,7 @@ def fetch_creatives(
                 "asset_uri": asset_uri,
                 "status": ad.get("status", "UNKNOWN"),
                 "campaign_id": str(ad.get("campaign_id", "")),
+                "campaign_name": ad.get("campaign_name", None),  # TikTok may provide this
                 "adset_id": str(ad.get("adgroup_id", "")),
             })
 

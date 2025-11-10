@@ -259,7 +259,7 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
 
     # Table 1: Performance Metrics
     st.subheader("📈 Performance Metrics")
-    perf_cols = ["creative_id", "status", "impressions", "clicks", "ctr", "conversions", "spend", "revenue"]
+    perf_cols = ["creative_id", "campaign_name", "status", "impressions", "clicks", "ctr", "conversions", "spend", "revenue"]
     perf_cols = [col for col in perf_cols if col in df.columns]
     st.dataframe(df[perf_cols], use_container_width=True, height=400)
 
@@ -271,6 +271,8 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
     # Create a clean dataframe with only analysis columns
     fatigue_df = pd.DataFrame()
     fatigue_df["creative_id"] = df["creative_id"]
+    if "campaign_name" in df.columns:
+        fatigue_df["campaign_name"] = df["campaign_name"]
     fatigue_df["status"] = df["status"]
 
     # Add formatted percentage columns
@@ -442,7 +444,7 @@ def creatives_tab(client_id: str, platform: str, use_mock: bool, show_enabled_on
     st.write(f"**Displaying:** {len(df)} creative(s) {('(enabled only)' if show_enabled_only else '(all statuses)')}")
 
     # Display table
-    display_cols = ["creative_id", "platform", "title", "text", "status"]
+    display_cols = ["creative_id", "campaign_name", "platform", "title", "text", "status"]
     display_cols = [col for col in display_cols if col in df.columns]
 
     st.dataframe(df[display_cols], use_container_width=True)

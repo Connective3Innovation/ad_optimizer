@@ -44,7 +44,7 @@ def fetch_creatives(api_token: str | None = None, ad_account_id: str | None = No
         url = f"https://graph.facebook.com/{api_version}/{ad_account_id}/ads"
         params = {
             "access_token": api_token,
-            "fields": "id,name,status,creative{id,name,title,body,image_url,video_id,object_story_spec}",
+            "fields": "id,name,status,campaign_id,campaign{id,name},creative{id,name,title,body,image_url,video_id,object_story_spec}",
             "limit": 100
         }
 
@@ -60,6 +60,7 @@ def fetch_creatives(api_token: str | None = None, ad_account_id: str | None = No
         rows = []
         for ad in data["data"]:
             creative = ad.get("creative", {})
+            campaign = ad.get("campaign", {})
             rows.append({
                 "creative_id": creative.get("id", ad["id"]),
                 "platform": "meta",
@@ -69,7 +70,9 @@ def fetch_creatives(api_token: str | None = None, ad_account_id: str | None = No
                 "overlay_text": None,
                 "frame_desc": None,
                 "asset_uri": creative.get("image_url", ""),
-                "status": ad.get("status", "UNKNOWN")
+                "status": ad.get("status", "UNKNOWN"),
+                "campaign_id": ad.get("campaign_id", campaign.get("id", "")),
+                "campaign_name": campaign.get("name", None)
             })
 
         log.info("Fetched %d Meta ad creatives", len(rows))

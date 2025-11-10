@@ -151,6 +151,7 @@ def fetch_creatives(
                     "asset_uri": "",
                     "status": row.ad_group_ad.status.name,
                     "campaign_id": str(row.campaign.id),
+                    "campaign_name": row.campaign.name if hasattr(row.campaign, 'name') else None,
                     "adset_id": str(row.ad_group.id),
                 })
             except Exception as e:

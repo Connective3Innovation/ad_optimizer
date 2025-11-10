@@ -41,6 +41,7 @@ class Creative:
     client_id: Optional[str] = None  # Multi-client support
     account_id: Optional[str] = None
     campaign_id: Optional[str] = None
+    campaign_name: Optional[str] = None  # Human-readable campaign name
     adset_id: Optional[str] = None
     ad_id: Optional[str] = None
     title: Optional[str] = None
