@@ -119,9 +119,11 @@ def generate_variants(
     try:
         client = _get_client(settings)
         sys = (
-            "You are a compliant creative copy generator for paid social/search. Generate N variant concepts with "
-            "hooks and overlays that align with brand guidelines. Return strict JSON list of objects with keys: "
-            "idea_title, new_hook, new_overlay_text, new_body_text, rationale."
+            "You are a creative copywriter for paid ads. Generate N diverse ad variants with different messaging angles. "
+            "Make each variant significantly different from the original and from each other. "
+            "Return ONLY a JSON array (no markdown, no explanation) with objects containing: "
+            "idea_title, new_hook, new_overlay_text, new_body_text, rationale, estimated_uplift (0.0-0.2 range). "
+            "Example: [{\"idea_title\": \"Value Focus\", \"new_hook\": \"Save Big Today\", \"estimated_uplift\": 0.10, ...}]"
         )
         user = (
             f"Creative:\n{json.dumps(asdict(creative), ensure_ascii=False)}\n\n"
@@ -137,6 +139,17 @@ def generate_variants(
             ],
         )
         content = completion.choices[0].message.content or "[]"
+
+        # Strip markdown code blocks if present
+        content = content.strip()
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+        content = content.strip()
+
         data = json.loads(content)
         out: List[VariantProposal] = []
         for item in data:
@@ -148,6 +161,8 @@ def generate_variants(
                     new_overlay_text=item.get("new_overlay_text"),
                     new_body_text=item.get("new_body_text"),
                     rationale=item.get("rationale"),
+                    compliance_flags=[],
+                    estimated_uplift=item.get("estimated_uplift", 0.08),  # Default 8% uplift estimate
                 )
             )
         return out

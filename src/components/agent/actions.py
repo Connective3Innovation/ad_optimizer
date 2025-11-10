@@ -19,6 +19,11 @@ log = get_logger(__name__)
 
 class ApprovalQueue:
     def __init__(self, settings: Settings):
+        """
+        Initialize the approval queue.
+
+        :param settings: The application settings.
+        """
         self.settings = settings
         self.cache_path = settings.repo_root / ".cache"
         self.cache_path.mkdir(parents=True, exist_ok=True)
@@ -64,6 +69,10 @@ class ApprovalQueue:
             self._save(items)
             return action
         return None
+
+    def clear(self) -> None:
+        """Clear all actions from the queue"""
+        self._save([])
 
 
 def actions_from_fatigue(perf_with_flags: pd.DataFrame, platform: str) -> List[AgentAction]:

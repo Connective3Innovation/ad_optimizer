@@ -62,9 +62,34 @@ class BigQueryClient:
 
             # Ensure tables
             tables = {
+                "clients": [
+                    bigquery.SchemaField("client_id", "STRING"),
+                    bigquery.SchemaField("client_name", "STRING"),
+                    bigquery.SchemaField("is_active", "BOOL"),
+                    bigquery.SchemaField("meta_access_token", "STRING"),
+                    bigquery.SchemaField("meta_ad_account_id", "STRING"),
+                    bigquery.SchemaField("meta_api_version", "STRING"),
+                    bigquery.SchemaField("google_ads_developer_token", "STRING"),
+                    bigquery.SchemaField("google_ads_client_id", "STRING"),
+                    bigquery.SchemaField("google_ads_client_secret", "STRING"),
+                    bigquery.SchemaField("google_ads_refresh_token", "STRING"),
+                    bigquery.SchemaField("google_ads_customer_id", "STRING"),
+                    bigquery.SchemaField("tiktok_access_token", "STRING"),
+                    bigquery.SchemaField("tiktok_app_id", "STRING"),
+                    bigquery.SchemaField("tiktok_secret", "STRING"),
+                    bigquery.SchemaField("tiktok_advertiser_id", "STRING"),
+                    bigquery.SchemaField("pinterest_access_token", "STRING"),
+                    bigquery.SchemaField("pinterest_ad_account_id", "STRING"),
+                    bigquery.SchemaField("linkedin_access_token", "STRING"),
+                    bigquery.SchemaField("linkedin_ad_account_id", "STRING"),
+                    bigquery.SchemaField("created_at", "TIMESTAMP"),
+                    bigquery.SchemaField("updated_at", "TIMESTAMP"),
+                    bigquery.SchemaField("notes", "STRING"),
+                ],
                 "creatives": [
                     bigquery.SchemaField("creative_id", "STRING"),
                     bigquery.SchemaField("platform", "STRING"),
+                    bigquery.SchemaField("client_id", "STRING"),
                     bigquery.SchemaField("title", "STRING"),
                     bigquery.SchemaField("text", "STRING"),
                     bigquery.SchemaField("hook", "STRING"),
@@ -75,6 +100,7 @@ class BigQueryClient:
                 ],
                 "performance": [
                     bigquery.SchemaField("creative_id", "STRING"),
+                    bigquery.SchemaField("client_id", "STRING"),
                     bigquery.SchemaField("dt", "DATE"),
                     bigquery.SchemaField("impressions", "INT64"),
                     bigquery.SchemaField("clicks", "INT64"),
@@ -82,6 +108,26 @@ class BigQueryClient:
                     bigquery.SchemaField("conversions", "INT64"),
                     bigquery.SchemaField("revenue", "FLOAT64"),
                     bigquery.SchemaField("platform", "STRING"),
+                ],
+                "ab_tests": [
+                    bigquery.SchemaField("test_id", "STRING"),
+                    bigquery.SchemaField("client_id", "STRING"),
+                    bigquery.SchemaField("platform", "STRING"),
+                    bigquery.SchemaField("test_name", "STRING"),
+                    bigquery.SchemaField("test_type", "STRING"),
+                    bigquery.SchemaField("status", "STRING"),
+                    bigquery.SchemaField("variant_a_id", "STRING"),
+                    bigquery.SchemaField("variant_b_id", "STRING"),
+                    bigquery.SchemaField("variant_c_id", "STRING"),
+                    bigquery.SchemaField("variant_d_id", "STRING"),
+                    bigquery.SchemaField("traffic_split", "STRING"),  # JSON
+                    bigquery.SchemaField("start_date", "TIMESTAMP"),
+                    bigquery.SchemaField("end_date", "TIMESTAMP"),
+                    bigquery.SchemaField("winner", "STRING"),
+                    bigquery.SchemaField("confidence_level", "FLOAT64"),
+                    bigquery.SchemaField("metrics", "STRING"),  # JSON
+                    bigquery.SchemaField("created_at", "TIMESTAMP"),
+                    bigquery.SchemaField("updated_at", "TIMESTAMP"),
                 ],
                 "embeddings": [
                     bigquery.SchemaField("creative_id", "STRING"),
@@ -177,3 +223,90 @@ class BigQueryClient:
             log.info("Upserted %d visual feature rows into BQ", len(df))
         except Exception as e:
             log.error("Failed to upsert visual_features: %s", e)
+
+    # Client management methods
+    def get_clients(self, active_only: bool = True) -> pd.DataFrame:
+        """Fetch all clients"""
+        if not self.enabled:
+            log.info("BQ disabled; returning empty clients DataFrame")
+            return pd.DataFrame()
+        try:
+            where_clause = "WHERE is_active = true" if active_only else ""
+            sql = f"""
+            SELECT * FROM `{self._table_ref('clients')}`
+            {where_clause}
+            ORDER BY client_name
+            """
+            df = self._client.query(sql).result().to_dataframe()
+            return df
+        except Exception as e:
+            log.error("Failed to read clients: %s", e)
+            return pd.DataFrame()
+
+    def get_client(self, client_id: str) -> Optional[Dict]:
+        """Fetch a single client by ID"""
+        if not self.enabled:
+            return None
+        try:
+            sql = f"""
+            SELECT * FROM `{self._table_ref('clients')}`
+            WHERE client_id = @client_id
+            LIMIT 1
+            """
+            from google.cloud import bigquery
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("client_id", "STRING", client_id)]
+            )
+            df = self._client.query(sql, job_config=job_config).result().to_dataframe()
+            if df.empty:
+                return None
+            return df.iloc[0].to_dict()
+        except Exception as e:
+            log.error("Failed to get client %s: %s", client_id, e)
+            return None
+
+    def upsert_client(self, client_data: Dict) -> None:
+        """Insert or update a client"""
+        if not self.enabled:
+            log.info("BQ disabled; skipping client upsert")
+            return
+        try:
+            self.ensure_dataset_and_tables()
+            df = pd.DataFrame([client_data])
+            job = self._client.load_table_from_dataframe(
+                df,
+                self._table_ref("clients"),
+                job_config=self._get_write_disposition_replace()
+            )
+            job.result()
+            log.info("Upserted client: %s", client_data.get("client_id"))
+        except Exception as e:
+            log.error("Failed to upsert client: %s", e)
+
+    def delete_client(self, client_id: str) -> None:
+        """Soft delete a client by marking as inactive"""
+        if not self.enabled:
+            log.info("BQ disabled; skipping client delete")
+            return
+        try:
+            sql = f"""
+            UPDATE `{self._table_ref('clients')}`
+            SET is_active = false
+            WHERE client_id = @client_id
+            """
+            from google.cloud import bigquery
+            job_config = bigquery.QueryJobConfig(
+                query_parameters=[bigquery.ScalarQueryParameter("client_id", "STRING", client_id)]
+            )
+            self._client.query(sql, job_config=job_config).result()
+            log.info("Deactivated client: %s", client_id)
+        except Exception as e:
+            log.error("Failed to delete client: %s", e)
+
+    def _get_write_disposition_replace(self):
+        """Helper to get write disposition config"""
+        try:
+            from google.cloud import bigquery
+            return bigquery.LoadJobConfig(write_disposition="WRITE_TRUNCATE")
+        except:
+            return None

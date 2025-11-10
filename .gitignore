@@ -19,6 +19,12 @@ venv/
 .streamlit/secrets.toml
 .cache/
 
+# OAuth & API Credentials
+client_secrets.json
+*_secrets.json
+credentials.json
+gcp_credentials.json
+
 # Build/Dist
 dist/
 build/
@@ -27,4 +33,13 @@ build/
 # IDE
 .idea/
 .vscode/
+docs/
+data/
+
+# Windows reserved names
+nul
+
+# Backup files
+src/app_old.py
+
 

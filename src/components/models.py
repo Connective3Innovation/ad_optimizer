@@ -1,14 +1,44 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import date, datetime
 from typing import Optional, List, Dict, Any
+
+
+@dataclass
+class Client:
+    """Multi-client configuration"""
+    client_id: str
+    client_name: str
+    is_active: bool = True
+    # Platform credentials stored as JSON
+    meta_access_token: Optional[str] = None
+    meta_ad_account_id: Optional[str] = None
+    meta_api_version: str = "v19.0"
+    google_ads_developer_token: Optional[str] = None
+    google_ads_client_id: Optional[str] = None
+    google_ads_client_secret: Optional[str] = None
+    google_ads_refresh_token: Optional[str] = None
+    google_ads_customer_id: Optional[str] = None
+    google_ads_mcc_id: Optional[str] = None  # MCC account for authentication (if applicable)
+    tiktok_access_token: Optional[str] = None
+    tiktok_app_id: Optional[str] = None
+    tiktok_secret: Optional[str] = None
+    tiktok_advertiser_id: Optional[str] = None
+    pinterest_access_token: Optional[str] = None
+    pinterest_ad_account_id: Optional[str] = None
+    linkedin_access_token: Optional[str] = None
+    linkedin_ad_account_id: Optional[str] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+    notes: Optional[str] = None
 
 
 @dataclass
 class Creative:
     creative_id: str
-    platform: str  # meta|tiktok|google
+    platform: str  # meta|tiktok|google|pinterest|linkedin
+    client_id: Optional[str] = None  # Multi-client support
     account_id: Optional[str] = None
     campaign_id: Optional[str] = None
     adset_id: Optional[str] = None
@@ -31,6 +61,8 @@ class Performance:
     spend: float
     conversions: int = 0
     revenue: float = 0.0
+    client_id: Optional[str] = None  # Multi-client support
+    platform: Optional[str] = None
 
     @property
     def ctr(self) -> float:
@@ -101,3 +133,26 @@ class VisualFeaturesModel:
     entropy: float
     overlay_text: str
     overlay_density: float
+
+
+@dataclass
+class ABTest:
+    """A/B Testing experiment"""
+    test_id: str
+    client_id: str
+    platform: str
+    test_name: str
+    test_type: str  # creative|copy|audience|budget
+    status: str  # draft|running|paused|completed
+    variant_a_id: str  # creative_id or ad_id
+    variant_b_id: str
+    variant_c_id: Optional[str] = None
+    variant_d_id: Optional[str] = None
+    traffic_split: Dict[str, float] = field(default_factory=lambda: {"a": 0.5, "b": 0.5})  # percentage per variant
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    winner: Optional[str] = None  # a|b|c|d
+    confidence_level: Optional[float] = None  # statistical significance
+    metrics: Dict[str, Any] = field(default_factory=dict)  # results per variant
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None

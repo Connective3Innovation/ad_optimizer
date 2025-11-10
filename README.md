@@ -1,37 +1,91 @@
-Ad Creative Auto-Optimizer (LLM + Vision + Guardrailed Agent)
+# Ad Creative Auto-Optimizer
 
-Overview
+## Multi-Platform, Multi-Client Advertising Optimization System
 
-- Pulls creative + performance from ad platforms (Meta/TikTok/Google) and analytics (GA4/MMP) via connectors (mockable locally).
-- Detects creative fatigue/wear-out and predicts next best concepts.
-- LLM + vision scores hooks, framing, and text overlays; generates compliant variants.
-- Guardrailed agent queues safe changes (rotate assets, update copy, pause losers) behind approval toggles.
-- BigQuery (BQ) is the primary DB; GCS used for assets. OpenAI used for LLM and embeddings.
-- Streamlit app provided to showcase the workflow end-to-end.
-- Vision module adds visual-fatigue signals (hashes, colors, OCR-based overlay density) and novelty scores.
+A comprehensive solution for managing advertising campaigns across Meta, Google Ads, TikTok, Pinterest, and LinkedIn with AI-powered insights, statistical A/B testing, and automated optimization.
 
-Quick Start (Local Mock Mode)
+### 🎯 Key Features
 
-1) Python 3.10+
+- **5 Platform Integrations**: Meta, Google Ads, TikTok, Pinterest, LinkedIn
+- **Multi-Client Management**: Unlimited clients with separate credentials
+- **A/B Testing**: Statistical significance testing with confidence levels
+- **Creative Fatigue Detection**: Automatically identify underperforming ads
+- **LLM + Vision Scoring**: AI-powered creative analysis and variant generation
+- **Guardrailed Agent**: Safe, approval-based automated actions
+- **BigQuery Integration**: Enterprise-grade data warehousing
+- **Mock Mode**: Test all features without API credentials
+
+---
+
+## 🚀 Quick Start (5 Minutes)
+
+See [docs/QUICK_START.md](docs/QUICK_START.md) for detailed instructions.
+
+### 1. Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 2. Run the App
+
+```bash
+streamlit run src/app.py
+```
+
+### 3. Test with Mock Data (No Credentials Needed)
+
+1) Python 3.11+
 2) Create and activate a virtual environment
    - Windows: `python -m venv .venv && .\.venv\Scripts\activate`
    - macOS/Linux: `python -m venv .venv && source .venv/bin/activate`
 3) Install dependencies: `pip install -r requirements.txt`
-4) Run the app in mock mode: `streamlit run src/app.py`
+4) Run the app: `streamlit run src/app.py`
+5) Toggle "Use mock data" ON in sidebar
+6) Select a demo client and platform
+7) Explore all features!
 
 - The app defaults to mock data from `data/sample/`. No cloud creds required.
 - If you have no OpenAI key, the app will use deterministic heuristic scoring as a fallback.
 - Vision features work without cloud; remote image URLs require internet. OCR is optional (needs Tesseract + `pytesseract`).
 
-Configure Real Integrations
+---
 
-- Streamlit secrets (recommended): copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and fill values.
-  - `openai_api_key`
-  - `gcp_project_id`
-  - `bigquery_dataset`
-  - `gcp_credentials_json` (path or raw JSON; optional if using ADC)
+## 🔐 Credential Management
 
-- Environment variables: copy `.env.example` to `.env` and fill values.
+### Recommended: Environment Variables (.env file)
+
+**For local development and GCP deployment** (matches your workflow!)
+
+```bash
+# 1. Copy template
+cp .env.example .env
+
+# 2. Edit with your credentials
+nano .env
+
+# 3. Add your clients
+CLIENT_1_NAME=My Company
+CLIENT_1_META_ACCESS_TOKEN=EAABsbCS...
+CLIENT_1_GOOGLE_ADS_DEVELOPER_TOKEN=abc123...
+
+# 4. Run
+streamlit run src/app.py
+```
+
+**See [ENV_SETUP_QUICKSTART.md](ENV_SETUP_QUICKSTART.md)** for complete guide.
+
+### Alternative: UI-Based Client Management
+
+Add clients directly in the app:
+1. Go to "👥 Client Management" tab
+2. Click "➕ Add New Client"
+3. Fill in credentials
+4. Saved to BigQuery (requires GCP setup)
+
+### Alternative: Streamlit Secrets
+
+Copy `.streamlit/secrets.toml.example` to `.streamlit/secrets.toml` and fill values.
 
 BigQuery Setup (Optional for cloud mode)
 
@@ -91,7 +145,7 @@ Prereqs
 GitHub Setup (Workload Identity Federation)
 
 - Create a Workload Identity Pool + Provider and bind your GitHub repo to a GCP service account.
-- In your GitHub repo, add Secrets:
+- In your Gitstreamlit run src/app.pyHub repo, add Secrets:
   - `GCP_WORKLOAD_IDENTITY_PROVIDER` — resource name of the WIF provider
   - `GCP_SERVICE_ACCOUNT` — service account email (for deploy)
   - `GCP_PROJECT_ID` — your project id
@@ -122,3 +176,36 @@ Git Hygiene
 
 - `.gitignore` excludes local env/secrets and virtualenvs.
 - `.dockerignore` keeps the image small and avoids bundling secrets.
+
+---
+
+## 📚 Documentation
+
+### Getting Started
+- **[Quick Start Guide](docs/QUICK_START.md)** - Get running in 5 minutes
+- **[Environment Variables Setup](ENV_SETUP_QUICKSTART.md)** - Credential management (recommended)
+- **[API Credentials Guide](API_CREDENTIALS_GUIDE.md)** - Get credentials for each platform
+- **[Credentials Location Guide](CREDENTIALS_LOCATION.md)** - Where to put credential files
+
+### Google Ads Specific
+- **[Google Ads Quick Start](docs/GOOGLE_ADS_QUICKSTART.md)** - 15-minute setup guide
+- **[Google Ads MCC Setup](docs/GOOGLE_ADS_MCC_SETUP.md)** - Detailed guide for MCC accounts
+- **[OAuth Troubleshooting](docs/GOOGLE_ADS_OAUTH_TROUBLESHOOTING.md)** - Fix OAuth errors
+- **[OAuth Setup Checklist](docs/GOOGLE_ADS_OAUTH_CHECKLIST.md)** - Pre-flight verification
+
+### Deployment
+- **[Deployment Guide](DEPLOYMENT_GUIDE.md)** - Deploy to GCP, Docker, K8s
+- **[Implementation Details](docs/IMPLEMENTATION_COMPLETE.md)** - Complete feature list
+- **[Multi-Platform Setup](docs/MULTI_PLATFORM_SETUP.md)** - Advanced configuration
+
+### Files in Root
+- `README.md` - This file
+- `.env.example` - Template for environment variables
+- `requirements.txt` - Python dependencies
+- `Dockerfile` - Container configuration
+
+---
+
+## 🤝 Contributing
+
+This is a production-ready advertising optimization platform. For questions or issues, please refer to the documentation above.

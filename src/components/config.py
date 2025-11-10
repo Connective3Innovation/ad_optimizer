@@ -37,6 +37,13 @@ class Settings:
     dry_run: bool = True
     require_approval: bool = True
 
+    # Meta (Facebook/Instagram) Partnership Ads
+    meta_access_token: Optional[str] = None
+    meta_api_version: str = "v19.0"
+    meta_ad_account_id: Optional[str] = None
+    instagram_business_account_id: Optional[str] = None
+    meta_default_adset_id: Optional[str] = None
+
     # Paths
     repo_root: Path = Path(__file__).resolve().parents[2]
     sample_data_dir: Path = Path(__file__).resolve().parents[2] / "data" / "sample"
@@ -68,6 +75,11 @@ def load_settings() -> Settings:
         use_mock_data=use_mock_data,
         dry_run=dry_run,
         require_approval=require_approval,
+        meta_access_token=pick("meta_access_token", "META_ACCESS_TOKEN"),
+        meta_api_version=pick("meta_api_version", "META_API_VERSION", default="v19.0"),
+        meta_ad_account_id=pick("meta_ad_account_id", "META_AD_ACCOUNT_ID"),
+        instagram_business_account_id=pick("instagram_business_account_id", "INSTAGRAM_BUSINESS_ACCOUNT_ID"),
+        meta_default_adset_id=pick("meta_default_adset_id", "META_DEFAULT_ADSET_ID"),
     )
 
 

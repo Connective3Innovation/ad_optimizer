@@ -1,0 +1,171 @@
+==========================================================================
+ENHANCED DASHBOARD FUNCTION - Replace in streamlit_app.py
+==========================================================================
+
+Replace the dashboard_tab function (lines 201-241) with this enhanced version:
+
+---START COPY FROM HERE---
+
+def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str, use_mock: bool, show_enabled_only: bool = True):
+    """Dashboard tab with enhanced fatigue detection and analytics"""
+    st.subheader("📊 Fatigue Detection & Analytics")
+
+    with st.spinner("Analyzing ad fatigue..."):
+        fatigue_data = detect_fatigue(client_id, platform, start_date, end_date, use_mock)
+
+    if not fatigue_data:
+        st.info("No fatigue data available")
+        return
+
+    df = pd.DataFrame(fatigue_data)
+
+    # Stats at the top
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Fresh Ads", len(df[df["status"] == "fresh"]), delta="Healthy")
+    col2.metric("At Risk", len(df[df["status"] == "fatigue-risk"]), delta="Monitor")
+    col3.metric("Fatigued", len(df[df["status"] == "fatigued"]), delta="Action Needed", delta_color="inverse")
+    col4.metric("Total Ads", len(df))
+
+    st.divider()
+
+    # Table 1: Performance Metrics
+    st.subheader("📈 Performance Metrics")
+    perf_cols = ["creative_id", "status", "impressions", "clicks", "ctr", "conversions", "spend", "revenue"]
+    perf_cols = [col for col in perf_cols if col in df.columns]
+    st.dataframe(df[perf_cols], use_container_width=True, height=400)
+
+    st.divider()
+
+    # Table 2: Fatigue Analysis Details
+    st.subheader("🔍 Fatigue Analysis Details")
+    fatigue_cols = ["creative_id", "status", "drop_from_peak_ctr", "drop_from_peak_roas", "exposure_index", "notes"]
+    fatigue_cols = [col for col in fatigue_cols if col in df.columns]
+    st.dataframe(df[fatigue_cols], use_container_width=True, height=400)
+
+    st.divider()
+
+    # Fetch performance data for charts
+    perf_data = fetch_performance(client_id, platform, start_date, end_date, use_mock)
+
+    if perf_data and perf_data.get("performance"):
+        perf_df = pd.DataFrame(perf_data["performance"])
+
+        if "dt" in perf_df.columns:
+            perf_df["dt"] = pd.to_datetime(perf_df["dt"])
+
+            # Calculate CTR if not present
+            if "ctr" not in perf_df.columns and "clicks" in perf_df.columns and "impressions" in perf_df.columns:
+                perf_df["ctr"] = (perf_df["clicks"] / perf_df["impressions"] * 100).fillna(0)
+
+            # Chart 1: CTR Trend (top 10 ads)
+            st.subheader("📈 CTR Trend Over Time")
+            top_ads = perf_df.groupby("creative_id")["impressions"].sum().nlargest(10).index.tolist()
+            perf_top = perf_df[perf_df["creative_id"].isin(top_ads)].copy()
+
+            if not perf_top.empty and "ctr" in perf_top.columns:
+                chart1 = alt.Chart(perf_top).mark_line(point=True).encode(
+                    x=alt.X("dt:T", title="Date"),
+                    y=alt.Y("ctr:Q", title="CTR (%)", scale=alt.Scale(zero=False)),
+                    color=alt.Color("creative_id:N", title="Creative ID"),
+                    tooltip=["dt:T", "creative_id:N", "ctr:Q", "impressions:Q", "clicks:Q"]
+                ).properties(height=400)
+                st.altair_chart(chart1, use_container_width=True)
+                st.caption("📊 Showing top 10 ads by impressions")
+
+            st.divider()
+
+            # Chart 2: Spend vs Revenue
+            st.subheader("💰 Spend vs Revenue Comparison")
+            spend_revenue = df[["creative_id", "spend", "revenue"]].copy()
+            top_spenders = spend_revenue.nlargest(10, "spend")["creative_id"].tolist()
+            spend_revenue_top = spend_revenue[spend_revenue["creative_id"].isin(top_spenders)]
+
+            if not spend_revenue_top.empty:
+                spend_revenue_melted = spend_revenue_top.melt(
+                    id_vars=["creative_id"],
+                    value_vars=["spend", "revenue"],
+                    var_name="metric",
+                    value_name="amount"
+                )
+
+                chart2 = alt.Chart(spend_revenue_melted).mark_bar().encode(
+                    x=alt.X("creative_id:N", title="Creative ID"),
+                    y=alt.Y("amount:Q", title="Amount ($)"),
+                    color=alt.Color("metric:N", title="Metric"),
+                    xOffset="metric:N",
+                    tooltip=["creative_id:N", "metric:N", "amount:Q"]
+                ).properties(height=400)
+                st.altair_chart(chart2, use_container_width=True)
+                st.caption("📊 Showing top 10 ads by spend")
+
+            st.divider()
+
+            # Chart 3: Performance by Status
+            st.subheader("🎯 Performance Breakdown by Fatigue Status")
+            status_agg = df.groupby("status").agg({
+                "conversions": "sum",
+                "spend": "sum",
+                "revenue": "sum",
+                "impressions": "sum"
+            }).reset_index()
+
+            if not status_agg.empty:
+                col1, col2 = st.columns(2)
+
+                with col1:
+                    chart3 = alt.Chart(status_agg).mark_bar().encode(
+                        x=alt.X("status:N", title="Status", sort=["fresh", "fatigue-risk", "fatigued"]),
+                        y=alt.Y("conversions:Q", title="Total Conversions"),
+                        color=alt.Color("status:N", scale=alt.Scale(
+                            domain=["fresh", "fatigue-risk", "fatigued"],
+                            range=["#2ecc71", "#f39c12", "#e74c3c"]
+                        ), legend=None),
+                        tooltip=["status:N", "conversions:Q", "spend:Q"]
+                    ).properties(height=300, title="Conversions")
+                    st.altair_chart(chart3, use_container_width=True)
+
+                with col2:
+                    chart4 = alt.Chart(status_agg).mark_bar().encode(
+                        x=alt.X("status:N", title="Status", sort=["fresh", "fatigue-risk", "fatigued"]),
+                        y=alt.Y("spend:Q", title="Total Spend ($)"),
+                        color=alt.Color("status:N", scale=alt.Scale(
+                            domain=["fresh", "fatigue-risk", "fatigued"],
+                            range=["#2ecc71", "#f39c12", "#e74c3c"]
+                        ), legend=None),
+                        tooltip=["status:N", "spend:Q", "revenue:Q"]
+                    ).properties(height=300, title="Spend")
+                    st.altair_chart(chart4, use_container_width=True)
+
+---END COPY HERE---
+
+==========================================================================
+WHAT THIS ADDS:
+==========================================================================
+
+1. **Two Separate Tables**:
+   - Performance Metrics: creative_id, status, impressions, clicks, CTR, conversions, spend, revenue
+   - Fatigue Analysis: creative_id, status, drop_from_peak_ctr, drop_from_peak_roas, exposure_index, notes
+
+2. **Enhanced Charts**:
+   - CTR Trend Over Time (top 10 ads by impressions)
+   - Spend vs Revenue Comparison (grouped bar chart)
+   - Performance Breakdown by Fatigue Status (conversions + spend by status)
+
+3. **Better Metrics Display**:
+   - 4 metrics at top with status indicators
+   - Color-coded by status (Green=Fresh, Orange=Risk, Red=Fatigued)
+
+4. **Height-Limited Tables**:
+   - Tables now have fixed height (400px) with scrolling for better UX
+
+==========================================================================
+HOW TO APPLY:
+==========================================================================
+
+1. Open: src/streamlit_app.py
+2. Find the dashboard_tab function (around line 201)
+3. Select the entire function (from `def dashboard_tab...` to the last line before `def creatives_tab`)
+4. Replace with the code above
+5. Save and refresh your Streamlit app
+
+The enhanced dashboard will now show all the fatigue analysis details you requested!

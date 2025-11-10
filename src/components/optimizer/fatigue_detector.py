@@ -61,9 +61,28 @@ def detect_fatigue(
             status.append("fresh")
             notes.append("Within normal variance")
 
+    # Aggregate performance metrics
+    agg_metrics = df.groupby("creative_id").agg({
+        "impressions": "sum",
+        "clicks": "sum",
+        "spend": "sum",
+        "conversions": "sum",
+        "revenue": "sum"
+    }).reindex(last.index)
+
+    # Calculate CTR and ROAS
+    agg_metrics["ctr"] = (agg_metrics["clicks"] / agg_metrics["impressions"] * 100).fillna(0).round(2)
+    agg_metrics["roas"] = (agg_metrics["revenue"] / agg_metrics["spend"]).replace([np.inf, -np.inf], 0.0).fillna(0).round(2)
+
     out = pd.DataFrame({
         "creative_id": last.index,
         "status": status,
+        "impressions": agg_metrics["impressions"].values.astype(int),
+        "clicks": agg_metrics["clicks"].values.astype(int),
+        "ctr": agg_metrics["ctr"].values,
+        "conversions": agg_metrics["conversions"].values.round(1),
+        "spend": agg_metrics["spend"].values.round(2),
+        "revenue": agg_metrics["revenue"].values.round(2),
         "drop_from_peak_ctr": drop_ctr_ratio.values.round(3),
         "drop_from_peak_roas": drop_roas_ratio.values.round(3),
         "exposure_index": exposure_ix.values.round(3),
