@@ -224,6 +224,8 @@ def fetch_performance(
         query = f"""
             SELECT
                 ad_group_ad.ad.id,
+                campaign.id,
+                campaign.name,
                 segments.date,
                 metrics.impressions,
                 metrics.clicks,
@@ -245,6 +247,8 @@ def fetch_performance(
         for row in response:
             rows.append({
                 "creative_id": str(row.ad_group_ad.ad.id),
+                "campaign_id": str(row.campaign.id),
+                "campaign_name": row.campaign.name if hasattr(row.campaign, 'name') else None,
                 "dt": pd.to_datetime(row.segments.date),
                 "impressions": int(row.metrics.impressions),
                 "clicks": int(row.metrics.clicks),

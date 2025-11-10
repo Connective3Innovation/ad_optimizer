@@ -108,6 +108,7 @@ class DataRequest(BaseModel):
 class FatigueDetectionResponse(BaseModel):
     """Fatigue detection results"""
     creative_id: str
+    campaign_name: Optional[str] = Field(None, description="Campaign name")
     status: str = Field(description="fresh, fatigue-risk, or fatigued")
     impressions: Optional[int] = None
     clicks: Optional[int] = None
@@ -575,7 +576,7 @@ async def detect_ad_fatigue(request: DataRequest):
         start_date = datetime.fromisoformat(request.start_date) if request.start_date else None
         end_date = datetime.fromisoformat(request.end_date) if request.end_date else None
 
-        _, perf_df = fetch_platform_data(
+        creatives_df, perf_df = fetch_platform_data(
             platform=request.platform,
             client_id=request.client_id,
             use_mock=request.use_mock,
@@ -583,16 +584,24 @@ async def detect_ad_fatigue(request: DataRequest):
             end_date=end_date
         )
 
+        logger.info(f"Fetched {len(creatives_df)} creatives and {len(perf_df)} performance records")
+
         if perf_df.empty:
             return []
 
-        # Run fatigue detection
+        # Run fatigue detection - campaign_name comes from performance data now
         flags = detect_fatigue(perf_df)
+
+        # Log campaign name coverage
+        if "campaign_name" in flags.columns:
+            campaign_names_found = flags['campaign_name'].notna().sum()
+            logger.info(f"Campaign names in fatigue results: {campaign_names_found}/{len(flags)} ads")
 
         result = []
         for _, row in flags.iterrows():
             result.append(FatigueDetectionResponse(
                 creative_id=str(row.get("creative_id")),
+                campaign_name=str(row.get("campaign_name")) if pd.notna(row.get("campaign_name")) else None,
                 status=row.get("status", "fresh"),
                 impressions=int(row.get("impressions", 0)) if pd.notna(row.get("impressions")) else None,
                 clicks=int(row.get("clicks", 0)) if pd.notna(row.get("clicks")) else None,

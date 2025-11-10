@@ -232,18 +232,43 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
 
     df = pd.DataFrame(fatigue_data)
 
+    # Store original count before filtering
+    total_analyzed = len(df)
+
+    # Apply status filter if enabled
+    if show_enabled_only and "status" in df.columns:
+        # First, we need to join with creatives data to get the ad status (not fatigue status)
+        if creatives_data and creatives_data.get("creatives"):
+            creatives_df = pd.DataFrame(creatives_data["creatives"])
+            if "status" in creatives_df.columns:
+                # Merge to get creative status
+                df = df.merge(
+                    creatives_df[["creative_id", "status"]].rename(columns={"status": "ad_status"}),
+                    on="creative_id",
+                    how="left"
+                )
+                # Filter for enabled ads only
+                original_count = len(df)
+                df = df[df["ad_status"].str.upper().isin(["ENABLED", "ACTIVE", "LIVE"])].copy()
+
+                if len(df) < original_count:
+                    st.info(f"📌 Showing {len(df)} enabled ads (filtered from {original_count} total analyzed ads)")
+
     # Show overview stats
     st.markdown("### 📊 Overview")
     col1, col2, col3 = st.columns(3)
     with col1:
         st.metric("Total Creatives", total_creatives, help="All creatives in your account")
     with col2:
-        st.metric("Analyzed Ads", len(df), help="Ads with performance data (includes all statuses: enabled, paused, disabled)")
+        st.metric("Analyzed Ads", len(df), help=f"Ads with performance data {'(enabled only)' if show_enabled_only else '(all statuses)'}")
     with col3:
         ads_without_data = total_creatives - len(df)
         st.metric("No Performance Data", ads_without_data, help="Creatives with zero impressions (new or never served)")
 
-    st.caption("ℹ️ **Note:** Performance analysis includes ALL ads with data, regardless of status (enabled, paused, or disabled)")
+    if show_enabled_only:
+        st.caption("ℹ️ **Note:** Showing enabled ads only. Uncheck 'Show enabled ads only' in the sidebar to see all ads.")
+    else:
+        st.caption("ℹ️ **Note:** Performance analysis includes ALL ads with data, regardless of status (enabled, paused, or disabled)")
 
     st.divider()
 
@@ -259,9 +284,17 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
 
     # Table 1: Performance Metrics
     st.subheader("📈 Performance Metrics")
-    perf_cols = ["creative_id", "campaign_name", "status", "impressions", "clicks", "ctr", "conversions", "spend", "revenue"]
+    # Use ad_status if available (from filtering), otherwise fall back to status
+    status_col = "ad_status" if "ad_status" in df.columns else "status"
+    perf_cols = ["creative_id", "campaign_name", status_col, "impressions", "clicks", "ctr", "conversions", "spend", "revenue"]
     perf_cols = [col for col in perf_cols if col in df.columns]
-    st.dataframe(df[perf_cols], use_container_width=True, height=400)
+
+    # Rename ad_status to status for display
+    display_df = df[perf_cols].copy()
+    if "ad_status" in display_df.columns:
+        display_df = display_df.rename(columns={"ad_status": "status"})
+
+    st.dataframe(display_df, use_container_width=True, height=400)
 
     st.divider()
 
@@ -306,6 +339,11 @@ def dashboard_tab(client_id: str, platform: str, start_date: str, end_date: str,
 
     if perf_data and perf_data.get("performance"):
         perf_df = pd.DataFrame(perf_data["performance"])
+
+        # Filter performance data to match the filtered creatives
+        if show_enabled_only and not df.empty:
+            enabled_creative_ids = df["creative_id"].unique()
+            perf_df = perf_df[perf_df["creative_id"].isin(enabled_creative_ids)].copy()
 
         if "dt" in perf_df.columns:
             perf_df["dt"] = pd.to_datetime(perf_df["dt"])

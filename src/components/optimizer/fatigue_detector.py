@@ -70,6 +70,11 @@ def detect_fatigue(
         "revenue": "sum"
     }).reindex(last.index)
 
+    # Get campaign_name if available (take first value per creative since it should be the same)
+    campaign_name_series = None
+    if "campaign_name" in df.columns:
+        campaign_name_series = df.groupby("creative_id")["campaign_name"].first().reindex(last.index)
+
     # Calculate CTR and ROAS
     agg_metrics["ctr"] = (agg_metrics["clicks"] / agg_metrics["impressions"] * 100).fillna(0).round(2)
     agg_metrics["roas"] = (agg_metrics["revenue"] / agg_metrics["spend"]).replace([np.inf, -np.inf], 0.0).fillna(0).round(2)
@@ -88,5 +93,10 @@ def detect_fatigue(
         "exposure_index": exposure_ix.values.round(3),
         "notes": notes,
     })
+
+    # Add campaign_name if available
+    if campaign_name_series is not None:
+        out["campaign_name"] = campaign_name_series.values
+
     return out
 
